@@ -1,0 +1,2 @@
+Min Zero's: 4
+Final result: 2193
