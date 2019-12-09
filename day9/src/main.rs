@@ -34,38 +34,42 @@ fn main() -> std::io::Result<()> {
     let content = std::fs::read_to_string(&args[1]);
     match content {
         Ok(c) => { 
-            let code = c.split(",").map(|s| s.parse::<i32>().unwrap()).collect::<intcode::IntCode>();
-            let mut max_thrust = 0;
-            for permutation in permutations(5).collect::<Vec<_>>() {
-                let mut amps = vec![
-                    intcode::Program::new(code.clone()),
-                    intcode::Program::new(code.clone()),
-                    intcode::Program::new(code.clone()),
-                    intcode::Program::new(code.clone()),
-                    intcode::Program::new(code.clone())];
-                let phase_settings = permutation.iter().map(|i| (i + 5) as i32).collect::<Vec<i32>>();
-                for (i, phase) in phase_settings.iter().enumerate() {
-                    amps[i].push_input(*phase);
-                }
-                let mut all_halt = false;
-                let mut last_output = 0;
-                while !all_halt {
-                    all_halt = true;
-                    for amp in &mut amps {
-                        amp.push_input(last_output);
-                        amp.process();
-                        last_output = amp.pop_output().unwrap();
-                        if amp.state != intcode::State::Halt {
-                            all_halt = false;
-                        }
+            let code = c.split(",").map(|s| s.parse::<i64>().unwrap()).collect::<intcode::IntCode>();
+
+            let mut  program = intcode::Program::new(code, true);
+            loop {
+                loop {
+                    match program.pop_output() {
+                        Some(v) => println!("Out: {:?}", v),
+                        None => break
                     }
                 }
-                if last_output > max_thrust {
-                    max_thrust = last_output;
+                match program.state {
+                    intcode::State::Idle => program.process(),
+                    intcode::State::WaitForInput => {
+                            print!("Inp: ");
+                            let mut input_text = String::new();
+                            std::io::stdin()
+                                    .read_line(&mut input_text)
+                                    .expect("failed to read from stdin");
+                            let trimmed = input_text.trim();
+                            match trimmed.parse::<i64>() {
+                                Ok(v) => program.push_input(v),
+                                Err(..) => println!("this was not an integer: {}", trimmed)
+                            };
+                    },
+                    intcode::State::Halt => {
+                        println!("Program stoped !");
+                        break;
+                    },
+                    intcode::State::Error(s) => {
+                        println!("Error: {:?} !", s);
+                        break;
+                    }
                 }
             }
-            println!("Max thrust: {:?}", max_thrust);
-            std::fs::write("output.txt", "12")
+
+            Ok(())
         }, 
         Err(e) => Err(e)
     }
